@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<parameters>
+  <CreateUsersInBulk>
+    <url>https://dev-srv-ws02-01.westeurope.cloudapp.azure.com:9443/wso2/scim/Bulk</url>
+    <contentType>application/json</contentType>
+    <method>POST</method>
+    <username>admin@wso2.com</username>
+    <password>admin</password>
+  </CreateUsersInBulk>
+</parameters>
