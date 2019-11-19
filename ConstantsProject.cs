@@ -39,4 +39,12 @@ public class ConstantsProject
 
     public const int EXPORT_USER_INFO_BY_USERNAME_ОК = 200;
     public const int EXPORT_AUTH_INFO_BY_USERNAME_ОК = 200;
+
+    public const int CREATE_USERS_IN_BULK_ОК = 200;
+
+
+    /// <summary>
+    /// MaxSize START
+    /// </summary>
+    public const int MAX_SIZE_START = 100;
 }

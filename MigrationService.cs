@@ -25,10 +25,16 @@ namespace Migration
         public static string CreateUsersInBulk_Username_Out { get; set; }
         public static string CreateUsersInBulk_Password_Out { get; set; }
         public static string CreateUsersInBulk_BasicAuth { get; set; }
+        public static string SCIMcheckData_Url_Out { get; set; }
+        public static string SCIMcheckData_ContentType_Out { get; set; }
+        public static string SCIMcheckData_Method_Out { get; set; }
+        public static string SCIMcheckData_Username_Out { get; set; }
+        public static string SCIMcheckData_Password_Out { get; set; }
+        public static string SCIMcheckData_BasicAuth { get; set; }
 
         public MigrationService()
         {
-            log.Info("Service Initialized.");
+            //log.Info("Service Initialized..");
             InitializeComponent();
         }
 
@@ -59,60 +65,149 @@ namespace Migration
                 log.Error("Error. " + ex.Message);
             }
 
-            log.Info(@"Service Started. ");
+            //log.Info(@"Service Started. ");
         }
 
 
         protected void BulkInsert()
         {
+            List<string> responseList = new List<string>();
+            ProjectUtility utility = new ProjectUtility();
+            string Response = string.Empty;
+            string ResponseStatus = string.Empty;
+            string ResponseExternal = string.Empty;
+            string ResponseStatusExternal = string.Empty;
+            string jsonData_SearchUserIDByUsername = string.Empty;
+            string ResponseSearch = string.Empty;
+            string ResponseStatusSearch = string.Empty;
+            int CompareData = 0;
+            ////////////////////
+            int MaxSize = ConstantsProject.MAX_SIZE_START;
+            int BulkSetId = 0;
+            int MaxSizeNext = 0;
+            string RequestData = string.Empty;
+            int RequestDataSize = 0;
+            int Result = 0;
+
             try
             {
-                List<string> responseList = new List<string>();
-                string Response = string.Empty;
-                string ResponseStatus = string.Empty;
-                string ResponseExternal = string.Empty;
-                string ResponseStatusExternal = string.Empty;
-                bool FinalOutcome = false;
-                bool FinalOutcomeFirstStep = false;
-                bool FinalOutcomeSecondStep = false;
-                string jsonData_SearchUserIDByUsername = string.Empty;
-                string ResponseSearch = string.Empty;
-                string ResponseStatusSearch = string.Empty;
-                int dataStringId = 10006;
-
-                ProjectUtility utility = new ProjectUtility();
-                //string jsonDataResult = utility.spBulkSet();
-                string jsonDataResult = utility.getDataString(dataStringId);
-
-                //log.Info("request data is " + jsonDataResult);
-
-                string jsonDataSCIM_BULK_Replace = jsonDataResult.Replace(@"""""", @"""");
-
-                //log.Info("request data is " + jsonDataSCIM_BULK_Replace);
-
-                log.Info("Register user in BULK start. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
-                string RegisterUser_Response = CreateUsersInBulk_WebRequestCall(jsonDataSCIM_BULK_Replace, out string resultResponse, out string statusCode, out string statusDescription, out string resulNotOK);
-                log.Info("Register user in BULK end1. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
-                responseList = ParseResponseForSCIMUsers(resultResponse);
-                log.Info("Number of enrolled users in this bulk: " + responseList.Count);
-                ResponseStatus = statusCode + " " + statusDescription;
-                if (Convert.ToInt32(statusCode) == ConstantsProject.REGISTER_USER_ОК)
+                while (MaxSize > 0)
                 {
-                    FinalOutcomeFirstStep = true;
-                    Response = resultResponse;
+                    utility.spCreateNewBulkSet(MaxSize, out BulkSetId, out MaxSizeNext, out RequestData, out RequestDataSize, out Result);
+                    log.Info("spCreateNewBulkSet: " + " MaxSize - " + MaxSize + " " + ". BulkSetId - " + BulkSetId + " " + ". MaxSizeNext - " + MaxSizeNext + " " + ". RequestData - " + RequestData + " " + ". RequestDataSize - " + RequestDataSize + " " + ". Result - " + Result);
+
+                    if (Result != 0)
+                    {
+                        log.Error("Result from database is diferent from 0. Result is: " + Result);
+                    }
+                    else
+                    {
+                        string jsonDataSCIM_BULK_Replace = RequestData.Replace(@"""""", @"""");
+
+                        log.Info("Create users in BULK ID " + BulkSetId + " start. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
+                        string RegisterUser_Response = CreateUsersInBulk_WebRequestCall(jsonDataSCIM_BULK_Replace, out string resultResponse, out string statusCode, out string statusDescription, out string resulNotOK);
+                        log.Info("Create users in BULK ID " + BulkSetId + " end. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
+
+                        ResponseStatus = statusCode + " " + statusDescription;
+                        log.Info("Response status for BULK ID " + BulkSetId + " is: " + ResponseStatus + " .");
+
+                        if (Convert.ToInt32(statusCode) == ConstantsProject.CREATE_USERS_IN_BULK_ОК)
+                        {
+                            Response = resultResponse;
+                            ////////////Number of enrolled users in this bulk////////////
+                            responseList = ParseResponseForSCIMUsers(resultResponse);
+                            log.Info("Number of enrolled users in this bulk: " + responseList.Count);
+                            if (responseList.Count == RequestDataSize)
+                            {
+                                CompareData = 1;
+                            }
+                            else
+                            {
+                                CompareData = 0;
+                                SCIM_DeleteUsersById(responseList, BulkSetId);
+                            }
+                            utility.spBulkSetExecutionResult(BulkSetId, CompareData, responseList.Count, out int ProcedureResult);
+
+                            if (ProcedureResult != 0)
+                            {
+                                log.Error("Result from database is diferent from 0. Result is: " + ProcedureResult);
+                            }
+                        }
+                        else
+                        {
+                            Response = resulNotOK;
+                            log.Info("Result Not OK + " + Response);
+                        }
+                        log.Info("Register user in BULK end1. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
+                    }
+
+                    MaxSize = MaxSizeNext;
                 }
-                else
-                {
-                    Response = resulNotOK;
-                }
-                log.Info("Register user in BULK end2. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
-                //log.Info("Register user in BULK end. Response result is: " + Response + " " + ResponseStatus);
             }
             catch (Exception ex)
             {
                 log.Error("Error in function BulkInsert. " + ex.Message);
             }
         }
+
+
+        protected void SCIM_DeleteUsersById(List<string> responseList, int bulkId)
+        {
+            string jsonDataSCIM = string.Empty;
+            string Response = string.Empty;
+            string ResponseStatus = string.Empty;
+            string ResponseExternal = string.Empty;
+            string ResponseStatusExternal = string.Empty;
+            bool FinalOutcome = false;
+            int counter = 0;
+
+            try
+            {
+                log.Info("Start deleting users from bulk: " + bulkId + " in SCIM web service. ");
+
+                foreach (var id in responseList)
+                {
+                    string resultDeleteFinal = string.Empty;
+                    string SCIM_DeleteUser_Response = SCIMcheckData_WebRequestCall(jsonDataSCIM, id, ConstantsProject.DELETE_METHOD, out resultDeleteFinal, out string statusCode, out string statusDescription, out string resultNotOK);
+                    ResponseExternal = resultDeleteFinal;
+                    ResponseStatusExternal = statusCode + " " + statusDescription;
+                    if (Convert.ToInt32(statusCode) == ConstantsProject.REGISTER_USER_SCIM_ОК)
+                    {
+                        FinalOutcome = true;
+                        log.Info("Is user with id: " + id + " deleted: " + FinalOutcome);
+                        counter++;
+                    }
+                }
+
+                log.Info("End deleting users from bulk: " + bulkId + " in SCIM web service. Number of deleting users: " + counter);
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error in function SCIM_DeleteUsersById. " + ex.Message);
+                throw new Exception("Error in function SCIM_DeleteUsersById. " + ex.Message);
+            }
+        }
+
+        public static string SCIMcheckData_WebRequestCall(string data, string UserID, string Method, out string result_Final_SCIMcheckData, out string StatusCode_Final_SCIMcheckData, out string StatusDescription_Final_SCIMcheckData, out string result_Final_NotOK)
+        {
+            StatusCode_Final_SCIMcheckData = string.Empty;
+            StatusDescription_Final_SCIMcheckData = string.Empty;
+            result_Final_SCIMcheckData = string.Empty;
+            result_Final_NotOK = string.Empty;
+            string WebCall = string.Empty;
+            /*******************************/
+            if (Method == ConstantsProject.DELETE_METHOD)
+            {
+                WebCall = Utils.WebRequestCall(data, (SCIMcheckData_Url_Out + UserID), Method, SCIMcheckData_ContentType_Out, SCIMcheckData_BasicAuth, out string resultFinal, out string StatusCodeFinal, out string StatusDescriptionFinal, out string resultFinalBad);
+                StatusCode_Final_SCIMcheckData = StatusCodeFinal;
+                StatusDescription_Final_SCIMcheckData = StatusDescriptionFinal;
+                result_Final_SCIMcheckData = resultFinal;
+                result_Final_NotOK = resultFinalBad;
+            }
+
+            return WebCall;
+        }
+
 
         public static string CreateUsersInBulk_WebRequestCall(string data, out string result_Final_CreateUsersInBulk, out string StatusCode_Final_CreateUsersInBulk, out string StatusDescription_Final_CreateUsersInBulk, out string result_Final_NotOK)
         {
@@ -135,19 +230,25 @@ namespace Migration
         {
             List<string> resultList = new List<string>();
 
-            // Parse your Result to an Array
-            var x = JObject.Parse(jsonResponse);
-            //log.Info("x is " + x.ToString());
-            var y = x["Operations"];
-
-            foreach (JObject o in y.Children<JObject>())
+            try
             {
-                var resultPrepared = o["location"];
-                string result = resultPrepared.ToString();
-                var userID = result.Split('/').Last();
-                resultList.Add(userID.ToString());
-            }
+                // Parse your Result to an Array
+                var x = JObject.Parse(jsonResponse);
+                //log.Info("x is " + x.ToString());
+                var y = x["Operations"];
 
+                foreach (JObject o in y.Children<JObject>())
+                {
+                    var resultPrepared = o["location"];
+                    string result = resultPrepared.ToString();
+                    var userID = result.Split('/').Last();
+                    resultList.Add(userID.ToString());
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error in function ParseResponseForSCIMUsers. " + ex.Message);
+            }
             return resultList;
         }
 
@@ -184,7 +285,7 @@ namespace Migration
                 navigator.MoveToFollowing(System.Xml.XPath.XPathNodeType.Element);//parameters
                 if (navigator.HasChildren)
                 {
-                    navigator.MoveToFirstChild();//<RegisterUser>
+                    navigator.MoveToFirstChild();//<CreateUsersInBulk>
                     do
                     {
                         if (navigator.Name == "CreateUsersInBulk")
@@ -196,6 +297,18 @@ namespace Migration
                             CreateUsersInBulk_Username_Out = CreateUsersInBulk_Username_Out_Final;
                             CreateUsersInBulk_Password_Out = CreateUsersInBulk_Password_Out_Final;
                             CreateUsersInBulk_BasicAuth = CreateUsersInBulk_Username_Out + ":" + CreateUsersInBulk_Password_Out;
+                            navigator.MoveToFollowing(XPathNodeType.Element);
+                            navigator.MoveToNext();
+                        }
+                        if (navigator.Name == "SCIMcheckData")
+                        {
+                            LoopingThrowNavigatorChild(navigator, out string SCIMcheckData_Url_Out_Final, out string SCIMcheckData_ContentType_Out_Final, out string SCIMcheckData_Method_Out_Final, out string SCIMcheckData_Username_Out_Final, out string SCIMcheckData_Password_Out_Final);
+                            SCIMcheckData_Url_Out = SCIMcheckData_Url_Out_Final;
+                            SCIMcheckData_ContentType_Out = SCIMcheckData_ContentType_Out_Final;
+                            SCIMcheckData_Method_Out = SCIMcheckData_Method_Out_Final;
+                            SCIMcheckData_Username_Out = SCIMcheckData_Username_Out_Final;
+                            SCIMcheckData_Password_Out = SCIMcheckData_Password_Out_Final;
+                            SCIMcheckData_BasicAuth = SCIMcheckData_Username_Out + ":" + SCIMcheckData_Password_Out;
                             navigator.MoveToFollowing(XPathNodeType.Element);
                         }
                     } while (navigator.MoveToNext());

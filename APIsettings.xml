@@ -7,4 +7,11 @@
     <username>admin@wso2.com</username>
     <password>admin</password>
   </CreateUsersInBulk>
+  <SCIMcheckData>
+    <url>https://dev-srv-ws02-01.westeurope.cloudapp.azure.com:9443/wso2/scim/Users/</url>
+    <contentType></contentType>
+    <method>GET</method>
+    <username>admin@wso2.com</username>
+    <password>admin</password>
+  </SCIMcheckData>
 </parameters>

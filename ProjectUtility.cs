@@ -12,7 +12,7 @@ using System.Web;
 
 public class ProjectUtility
 {
-    public string EGovTestingConnectionString = ConfigurationManager.ConnectionStrings["EGovTestingConnectionString"].ToString();
+    public string EGovMigrationConnectionString = ConfigurationManager.ConnectionStrings["EGovMigrationConnectionString"].ToString();
     //public string scnsconnectionstring = ConfigurationManager.ConnectionStrings["SCNSPISConnectionString"].ToString();
     //Lofg4Net declare log variable
     private static readonly ILog log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
@@ -24,7 +24,7 @@ public class ProjectUtility
 
     public bool IsAvailableConnection()
     {
-        using (SqlConnection objConn = new SqlConnection(EGovTestingConnectionString))
+        using (SqlConnection objConn = new SqlConnection(EGovMigrationConnectionString))
         {
             try
             {
@@ -43,7 +43,7 @@ public class ProjectUtility
 
     public void testSessionStart(int TestSessionId, out int result)
     {
-        using (SqlConnection objConn = new SqlConnection(EGovTestingConnectionString))
+        using (SqlConnection objConn = new SqlConnection(EGovMigrationConnectionString))
         {
             using (SqlCommand objCmd = new SqlCommand("spTestSessionStart", objConn))
             {
@@ -76,7 +76,7 @@ public class ProjectUtility
 
     public void testSessionFinish(int TestSessionId, out int result)
     {
-        using (SqlConnection objConn = new SqlConnection(EGovTestingConnectionString))
+        using (SqlConnection objConn = new SqlConnection(EGovMigrationConnectionString))
         {
             using (SqlCommand objCmd = new SqlCommand("spTestSessionFinish", objConn))
             {
@@ -108,7 +108,7 @@ public class ProjectUtility
 
     public void testCombinationStart(int TestCombinationId, out int result)
     {
-        using (SqlConnection objConn = new SqlConnection(EGovTestingConnectionString))
+        using (SqlConnection objConn = new SqlConnection(EGovMigrationConnectionString))
         {
             using (SqlCommand objCmd = new SqlCommand("spTestCombinationStart", objConn))
             {
@@ -141,7 +141,7 @@ public class ProjectUtility
 
     public void testCombinationFinish(int TestCombinationId, string Response, string ResponseStatus, string ResponseExternal, string ResponseStatusExternal, bool FinalOutcome, out int result)
     {
-        using (SqlConnection objConn = new SqlConnection(EGovTestingConnectionString))
+        using (SqlConnection objConn = new SqlConnection(EGovMigrationConnectionString))
         {
             using (SqlCommand objCmd = new SqlCommand("spTestCombinationFinish", objConn))
             {
@@ -184,7 +184,7 @@ public class ProjectUtility
                         FROM            dbo.Method
                         WHERE        (MethodName = @methodname)";
 
-        using (SqlConnection objConn = new SqlConnection(EGovTestingConnectionString))
+        using (SqlConnection objConn = new SqlConnection(EGovMigrationConnectionString))
         {
             using (SqlCommand objCmd = new SqlCommand(upit, objConn))
             {
@@ -219,7 +219,7 @@ public class ProjectUtility
                         FROM            dbo.Method
                         WHERE        (MethodId = @methodid)";
 
-        using (SqlConnection objConn = new SqlConnection(EGovTestingConnectionString))
+        using (SqlConnection objConn = new SqlConnection(EGovMigrationConnectionString))
         {
             using (SqlCommand objCmd = new SqlCommand(query, objConn))
             {
@@ -249,7 +249,7 @@ public class ProjectUtility
     {
         string test = string.Empty;
 
-        using (SqlConnection objConn = new SqlConnection(EGovTestingConnectionString))
+        using (SqlConnection objConn = new SqlConnection(EGovMigrationConnectionString))
         {
             using (SqlCommand objCmd = new SqlCommand("spBulkInsert", objConn))
             {
@@ -289,7 +289,7 @@ public class ProjectUtility
                         FROM            dbo.DataStringTest
                         WHERE        (ID = @id)";
 
-        using (SqlConnection objConn = new SqlConnection(EGovTestingConnectionString))
+        using (SqlConnection objConn = new SqlConnection(EGovMigrationConnectionString))
         {
             using (SqlCommand objCmd = new SqlCommand(upit, objConn))
             {
@@ -315,6 +315,89 @@ public class ProjectUtility
         return dataString;
     }
 
+
+    public void spCreateNewBulkSet(int MaxSize, out int BulkSetId, out int MaxSizeNext, out string RequestData, out int RequestDataSize, out int result)
+    {
+        using (SqlConnection objConn = new SqlConnection(EGovMigrationConnectionString))
+        {
+            using (SqlCommand objCmd = new SqlCommand("spCreateNewBulkSet", objConn))
+            {
+                try
+                {
+                    objCmd.CommandType = CommandType.StoredProcedure;
+
+                    objCmd.Parameters.Add("@MaxSize", System.Data.SqlDbType.Int).Value = MaxSize;
+
+                    objCmd.Parameters.Add("@BulkSetId", System.Data.SqlDbType.Int);
+                    objCmd.Parameters["@BulkSetId"].Direction = System.Data.ParameterDirection.Output;
+
+                    objCmd.Parameters.Add("@MaxSizeNext", System.Data.SqlDbType.Int);
+                    objCmd.Parameters["@MaxSizeNext"].Direction = System.Data.ParameterDirection.Output;
+
+                    objCmd.Parameters.Add("@RequestData", System.Data.SqlDbType.NVarChar, -1);
+                    objCmd.Parameters["@RequestData"].Direction = System.Data.ParameterDirection.Output;
+
+                    objCmd.Parameters.Add("@RequestDataSize", System.Data.SqlDbType.Int);
+                    objCmd.Parameters["@RequestDataSize"].Direction = System.Data.ParameterDirection.Output;
+
+                    objCmd.Parameters.Add("@err", System.Data.SqlDbType.Int);
+                    objCmd.Parameters["@err"].Direction = ParameterDirection.ReturnValue;
+
+                    objConn.Open();
+                    objCmd.ExecuteNonQuery();
+
+                    //Retrieve the values of the output parameters
+                    BulkSetId = Convert.ToInt32(objCmd.Parameters["@BulkSetId"].Value);
+                    MaxSizeNext = Convert.ToInt32(objCmd.Parameters["@MaxSizeNext"].Value);
+                    RequestData = objCmd.Parameters["@RequestData"].Value.ToString();
+                    RequestDataSize = Convert.ToInt32(objCmd.Parameters["@RequestDataSize"].Value);
+                    result = Convert.ToInt32(objCmd.Parameters["@err"].Value);
+
+                    objConn.Close();
+                }
+                catch (Exception ex)
+                {
+                    log.Error("Error in function spCreateNewBulkSet. " + ex.Message);
+                    throw new Exception("Error in function spCreateNewBulkSet. " + ex.Message);
+                }
+            }
+        }
+    }
+
+
+    public void spBulkSetExecutionResult(int BulkSetId, int ExecutionResult, int NumberOfExecutedRecords, out int result)
+    {
+        using (SqlConnection objConn = new SqlConnection(EGovMigrationConnectionString))
+        {
+            using (SqlCommand objCmd = new SqlCommand("spBulkSetExecutionResult", objConn))
+            {
+                try
+                {
+                    objCmd.CommandType = CommandType.StoredProcedure;
+
+                    objCmd.Parameters.Add("@BulkSetId", System.Data.SqlDbType.Int).Value = BulkSetId;
+                    objCmd.Parameters.Add("@ExecutionResult", System.Data.SqlDbType.Int).Value = ExecutionResult;
+                    objCmd.Parameters.Add("@NumberOfExecutedRecords", System.Data.SqlDbType.Int).Value = NumberOfExecutedRecords;
+
+
+                    objCmd.Parameters.Add("@err", System.Data.SqlDbType.Int);
+                    objCmd.Parameters["@err"].Direction = ParameterDirection.ReturnValue;
+
+                    objConn.Open();
+                    objCmd.ExecuteNonQuery();
+
+                    result = Convert.ToInt32(objCmd.Parameters["@err"].Value);
+
+                    objConn.Close();
+                }
+                catch (Exception ex)
+                {
+                    log.Error("Error in function spBulkSetExecutionResult. " + ex.Message);
+                    throw new Exception("Error in function spBulkSetExecutionResult. " + ex.Message);
+                }
+            }
+        }
+    }
 
 }
 /*
@@ -536,10 +619,7 @@ WHERE        (dbo.TerminPredavanja.IDTerminPredavanja = @idterminpredavanja)";
 
 
 
-
-
-
-
+    
 
 
 
