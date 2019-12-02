@@ -31,7 +31,7 @@ namespace Migration
                 ServicePointManager.ServerCertificateValidationCallback = new System.Net.Security.RemoteCertificateValidationCallback(AcceptAllCertifications);
 
                 var httpWebRequest = (HttpWebRequest)WebRequest.Create(apiUrl);
-                httpWebRequest.Timeout = 300000; //300sec
+                httpWebRequest.Timeout = 18000000; //18000sec 5hours
                 httpWebRequest.ContentType = apiContentType;
                 httpWebRequest.Method = apiMethod;
 
@@ -141,6 +141,22 @@ namespace Migration
             res = res1.ToString();
 
             return res;
+        }
+
+
+        public static string getBetween(string strSource, string strStart, string strEnd)
+        {
+            int Start, End;
+            if (strSource.Contains(strStart) && strSource.Contains(strEnd))
+            {
+                Start = strSource.IndexOf(strStart, 0) + strStart.Length;
+                End = strSource.IndexOf(strEnd, Start);
+                return strSource.Substring(Start, End - Start);
+            }
+            else
+            {
+                return string.Empty;
+            }
         }
     }
 }

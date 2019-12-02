@@ -88,6 +88,7 @@ namespace Migration
             string RequestData = string.Empty;
             int RequestDataSize = 0;
             int Result = 0;
+            string jsonDataSCIM_BULK_Replace = string.Empty;
 
             try
             {
@@ -102,7 +103,24 @@ namespace Migration
                     }
                     else
                     {
-                        string jsonDataSCIM_BULK_Replace = RequestData.Replace(@"""""", @"""");
+                        log.Info("RequestData is: " + RequestData);
+                        jsonDataSCIM_BULK_Replace = RequestData.Replace(@"""""", @"""");
+                        log.Info("After replacing. RequestData is: " + jsonDataSCIM_BULK_Replace);
+
+                        //field that are not required
+                        string data1 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"password\"", ",");
+                        string data2 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"city\"", ",");
+                        string data3 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"postalcode\"", ",");
+                        string data4 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"country\"", ",");
+                        string data5 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"streetaddress\"", ",");
+                        log.Info("Data's is " + data1 + " " + data2 + " " + data3 + " " + data4 + " " + data5);
+
+                        //if there is a data with :" it will be change with :"" 
+                        if (data1 == ":\"" || data2 == ":\"" || data3 == ":\"" || data4 == ":\"" || data5 == ":\"")
+                        {
+                            jsonDataSCIM_BULK_Replace = jsonDataSCIM_BULK_Replace.Replace(@":"",", @":"""",");
+                            log.Info(jsonDataSCIM_BULK_Replace);
+                        }
 
                         log.Info("Create users in BULK ID " + BulkSetId + " start. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
                         string RegisterUser_Response = CreateUsersInBulk_WebRequestCall(jsonDataSCIM_BULK_Replace, out string resultResponse, out string statusCode, out string statusDescription, out string resulNotOK);
