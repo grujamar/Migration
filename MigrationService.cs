@@ -25,12 +25,14 @@ namespace Migration
         public static string CreateUsersInBulk_Username_Out { get; set; }
         public static string CreateUsersInBulk_Password_Out { get; set; }
         public static string CreateUsersInBulk_BasicAuth { get; set; }
+        public static string CreateUsersInBulk_MaxSizeStart { get; set; }
         public static string SCIMcheckData_Url_Out { get; set; }
         public static string SCIMcheckData_ContentType_Out { get; set; }
         public static string SCIMcheckData_Method_Out { get; set; }
         public static string SCIMcheckData_Username_Out { get; set; }
         public static string SCIMcheckData_Password_Out { get; set; }
         public static string SCIMcheckData_BasicAuth { get; set; }
+        public static string SCIMcheckData_MaxSizeStart { get; set; }
 
         public MigrationService()
         {
@@ -82,7 +84,7 @@ namespace Migration
             string ResponseStatusSearch = string.Empty;
             int CompareData = 0;
             ////////////////////
-            int MaxSize = ConstantsProject.MAX_SIZE_START;
+            int MaxSize = Convert.ToInt32(CreateUsersInBulk_MaxSizeStart);
             int BulkSetId = 0;
             int MaxSizeNext = 0;
             string RequestData = string.Empty;
@@ -308,25 +310,27 @@ namespace Migration
                     {
                         if (navigator.Name == "CreateUsersInBulk")
                         {
-                            LoopingThrowNavigatorChild(navigator, out string CreateUsersInBulk_Url_Out_Final, out string CreateUsersInBulk_ContentType_Out_Final, out string CreateUsersInBulk_Method_Out_Final, out string CreateUsersInBulk_Username_Out_Final, out string CreateUsersInBulk_Password_Out_Final);
+                            LoopingThrowNavigatorChild(navigator, out string CreateUsersInBulk_Url_Out_Final, out string CreateUsersInBulk_ContentType_Out_Final, out string CreateUsersInBulk_Method_Out_Final, out string CreateUsersInBulk_Username_Out_Final, out string CreateUsersInBulk_Password_Out_Final, out string CreateUsersInBulk_MaxSizeStart_Out_Final);
                             CreateUsersInBulk_Url_Out = CreateUsersInBulk_Url_Out_Final;
                             CreateUsersInBulk_ContentType_Out = CreateUsersInBulk_ContentType_Out_Final;
                             CreateUsersInBulk_Method_Out = CreateUsersInBulk_Method_Out_Final;
                             CreateUsersInBulk_Username_Out = CreateUsersInBulk_Username_Out_Final;
                             CreateUsersInBulk_Password_Out = CreateUsersInBulk_Password_Out_Final;
                             CreateUsersInBulk_BasicAuth = CreateUsersInBulk_Username_Out + ":" + CreateUsersInBulk_Password_Out;
+                            CreateUsersInBulk_MaxSizeStart = CreateUsersInBulk_MaxSizeStart_Out_Final;
                             navigator.MoveToFollowing(XPathNodeType.Element);
                             navigator.MoveToNext();
                         }
                         if (navigator.Name == "SCIMcheckData")
                         {
-                            LoopingThrowNavigatorChild(navigator, out string SCIMcheckData_Url_Out_Final, out string SCIMcheckData_ContentType_Out_Final, out string SCIMcheckData_Method_Out_Final, out string SCIMcheckData_Username_Out_Final, out string SCIMcheckData_Password_Out_Final);
+                            LoopingThrowNavigatorChild(navigator, out string SCIMcheckData_Url_Out_Final, out string SCIMcheckData_ContentType_Out_Final, out string SCIMcheckData_Method_Out_Final, out string SCIMcheckData_Username_Out_Final, out string SCIMcheckData_Password_Out_Final, out string SCIMcheckData_MaxSizeStart_Out_Final);
                             SCIMcheckData_Url_Out = SCIMcheckData_Url_Out_Final;
                             SCIMcheckData_ContentType_Out = SCIMcheckData_ContentType_Out_Final;
                             SCIMcheckData_Method_Out = SCIMcheckData_Method_Out_Final;
                             SCIMcheckData_Username_Out = SCIMcheckData_Username_Out_Final;
                             SCIMcheckData_Password_Out = SCIMcheckData_Password_Out_Final;
                             SCIMcheckData_BasicAuth = SCIMcheckData_Username_Out + ":" + SCIMcheckData_Password_Out;
+                            SCIMcheckData_MaxSizeStart = SCIMcheckData_MaxSizeStart_Out_Final;
                             navigator.MoveToFollowing(XPathNodeType.Element);
                         }
                     } while (navigator.MoveToNext());
@@ -338,13 +342,14 @@ namespace Migration
             }
         }
 
-        public static void LoopingThrowNavigatorChild(XPathNavigator navigator, out string Url_Out, out string ContentType_Out, out string Method_Out, out string Username_Out, out string Password_Out)
+        public static void LoopingThrowNavigatorChild(XPathNavigator navigator, out string Url_Out, out string ContentType_Out, out string Method_Out, out string Username_Out, out string Password_Out, out string MaxSizeStart_Out)
         {
             Url_Out = string.Empty;
             ContentType_Out = string.Empty;
             Method_Out = string.Empty;
             Username_Out = string.Empty;
             Password_Out = string.Empty;
+            MaxSizeStart_Out = string.Empty;
 
             do
             {
@@ -373,7 +378,12 @@ namespace Migration
                 {
                     Password_Out = navigator.Value;
                 }
-                log.Info("Get parameters from settings file : URL - " + Url_Out + " . Content Type - " + ContentType_Out + " . Method - " + Method_Out + " . Username - " + Username_Out + " . Password - " + Password_Out);
+                navigator.MoveToFollowing(XPathNodeType.Element);
+                if (navigator.Name == "maxSizeStart")
+                {
+                    MaxSizeStart_Out = navigator.Value;
+                }
+                log.Info("Get parameters from settings file : URL - " + Url_Out + " . Content Type - " + ContentType_Out + " . Method - " + Method_Out + " . Username - " + Username_Out + " . Password - " + Password_Out + " . MaxSizeStart - " + MaxSizeStart_Out);
                 navigator.MoveToFollowing(XPathNodeType.Element);
 
                 navigator.MoveToParent();
