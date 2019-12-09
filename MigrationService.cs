@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.ServiceProcess;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.XPath;
@@ -33,6 +34,11 @@ namespace Migration
         public static string SCIMcheckData_Password_Out { get; set; }
         public static string SCIMcheckData_BasicAuth { get; set; }
         public static string SCIMcheckData_MaxSizeStart { get; set; }
+        public static string ConnectionString { get; set; }
+        public static string SCIMcheckData_ConnectionString { get; set; }
+        private Object workInProgressLock = new Object();
+        private List<StartBulkTime> timesForBulkStarting = new List<StartBulkTime>();
+        private Timer getStartBulkTimer;
 
         public MigrationService()
         {
@@ -50,16 +56,49 @@ namespace Migration
                 initializeSetup();
 
                 ProjectUtility utility = new ProjectUtility();
-                bool ConnectionActive = utility.IsAvailableConnection();
+                bool ConnectionActive = utility.IsAvailableConnection(ConnectionString);
                 if (!ConnectionActive)
                 {
                     log.Error("Connection problem to database. ");
                 }
                 else
                 {
-                    log.Info("BulkInsert START. ");
-                    BulkInsert();
-                    log.Info("BulkInsert END. ");
+                    //1.
+                    // tajmer za ocitavanje vremena za Bulk Starting --------
+                    List<string> stringTimesForBulkStarting = new List<string>();
+
+                    try
+                    {
+                        XmlSettings.XmlSettings.getArraySettings(SettingsFile, "startBulkTime", ref stringTimesForBulkStarting);
+                    }
+                    catch (Exception)
+                    { }
+
+                    if (stringTimesForBulkStarting.Count > 0) // ako nisu upisana vremena za ocitavanje loga, onda nemoj da pravis tajmer za to uopste
+                    {
+                        foreach (string t in stringTimesForBulkStarting)
+                        {
+                            int index = t.IndexOf(":");
+                            int h = Convert.ToInt32((index > 0 ? t.Substring(0, index) : ""));
+                            int m = Convert.ToInt32((index > 0 ? t.Substring(index + 1) : ""));
+
+                            if ((h < 0) || (h > 23))
+                            {
+                                throw new Exception("Wrong startBulkTime in settings file: " + t);
+                            }
+
+                            if ((m < 0) || (m > 59))
+                            {
+                                throw new Exception("Wrong startBulkTime in settings file: " + t);
+                            }
+
+                            timesForBulkStarting.Add(new StartBulkTime(h, m));
+                        }
+
+                        TimerCallback bulkStartingTimerDelegate = new TimerCallback(doWork);
+                        getStartBulkTimer = new Timer(bulkStartingTimerDelegate, null, 30000, 60000);  //svakog minuta se poziva tajmer
+                    }
+                    //------------------------------------------------------
                 }
             }
             catch (Exception ex)
@@ -67,9 +106,49 @@ namespace Migration
                 log.Error("Error. " + ex.Message);
             }
 
-            //log.Info(@"Service Started. ");
+            log.Info(@"Service Started. ");
         }
 
+
+        //--------------------------Do Work funkcija--------------------------------
+        protected void doWork(object state)
+        {
+            try
+            {
+                DateTime now = DateTime.Now;
+
+                foreach (StartBulkTime time in timesForBulkStarting)
+                {
+                    DateTime whenShouldRead = new DateTime(now.Year, now.Month, now.Day, time.Hour, time.Minute, 0);
+
+                    if ((now > whenShouldRead) && (now < whenShouldRead.AddMinutes(5)))
+                    {
+                        lock (workInProgressLock)
+                        {
+                            if (!time.isDone)
+                            {
+                                log.Info("BulkInsert START. ");
+                                BulkInsert();
+                                time.isDone = true;
+                                log.Info("BulkInsert END. ");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (time.isDone)
+                        {
+                            time.isDone = false;
+                        }
+                    }
+                }   
+            }
+            catch (Exception ex)
+            {
+                log.Error("Error in doWork method. " + ex.Message);
+            }
+        }
+        //-------------------------------------------------------------------------------------
 
         protected void BulkInsert()
         {
@@ -94,74 +173,78 @@ namespace Migration
 
             try
             {
-                while (MaxSize > 0)
+                lock (workInProgressLock)
                 {
-                    utility.spCreateNewBulkSet(MaxSize, out BulkSetId, out MaxSizeNext, out RequestData, out RequestDataSize, out Result);
-                    log.Info("spCreateNewBulkSet: " + " MaxSize - " + MaxSize + " " + ". BulkSetId - " + BulkSetId + " " + ". MaxSizeNext - " + MaxSizeNext + " " + ". RequestData - " + RequestData + " " + ". RequestDataSize - " + RequestDataSize + " " + ". Result - " + Result);
-
-                    if (Result != 0)
+                    while (MaxSize > 0)
                     {
-                        log.Error("Result from database is diferent from 0. Result is: " + Result);
-                    }
-                    else
-                    {
-                        log.Info("RequestData is: " + RequestData);
-                        jsonDataSCIM_BULK_Replace = RequestData.Replace(@"""""", @"""");
-                        log.Info("After replacing. RequestData is: " + jsonDataSCIM_BULK_Replace);
+                        utility.spCreateNewBulkSet(MaxSize, ConnectionString, out BulkSetId, out MaxSizeNext, out RequestData, out RequestDataSize, out Result);
+                        log.Info("spCreateNewBulkSet: " + " MaxSize - " + MaxSize + " " + ". BulkSetId - " + BulkSetId + " " + ". MaxSizeNext - " + MaxSizeNext + " " + ". RequestData - " + RequestData + " " + ". RequestDataSize - " + RequestDataSize + " " + ". Result - " + Result);
 
-                        //field that are not required
-                        string data1 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"password\"", ",");
-                        string data2 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"city\"", ",");
-                        string data3 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"postalcode\"", ",");
-                        string data4 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"country\"", ",");
-                        string data5 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"streetaddress\"", ",");
-                        log.Info("Data's is " + data1 + " " + data2 + " " + data3 + " " + data4 + " " + data5);
-
-                        //if there is a data with :" it will be change with :"" 
-                        if (data1 == ":\"" || data2 == ":\"" || data3 == ":\"" || data4 == ":\"" || data5 == ":\"")
+                        if (Result != 0)
                         {
-                            jsonDataSCIM_BULK_Replace = jsonDataSCIM_BULK_Replace.Replace(@":"",", @":"""",");
-                            log.Info(jsonDataSCIM_BULK_Replace);
+                            log.Error("Result from database is diferent from 0. Result is: " + Result);
                         }
-
-                        log.Info("Create users in BULK ID " + BulkSetId + " start. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
-                        string RegisterUser_Response = CreateUsersInBulk_WebRequestCall(jsonDataSCIM_BULK_Replace, out string resultResponse, out string statusCode, out string statusDescription, out string resulNotOK);
-                        log.Info("Create users in BULK ID " + BulkSetId + " end. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
-
-                        ResponseStatus = statusCode + " " + statusDescription;
-                        log.Info("Response status for BULK ID " + BulkSetId + " is: " + ResponseStatus + " .");
-
-                        if (Convert.ToInt32(statusCode) == ConstantsProject.CREATE_USERS_IN_BULK_ОК)
+                        else
                         {
-                            Response = resultResponse;
-                            ////////////Number of enrolled users in this bulk////////////
-                            responseList = ParseResponseForSCIMUsers(resultResponse);
-                            log.Info("Number of enrolled users in this bulk: " + responseList.Count);
-                            if (responseList.Count == RequestDataSize)
+                            //log.Info("RequestData is: " + RequestData);
+                            jsonDataSCIM_BULK_Replace = RequestData.Replace(@"""""", @"""");
+                            //log.Info("After replacing. RequestData is: " + jsonDataSCIM_BULK_Replace);
+
+                            //field that are not required
+                            string data1 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"password\"", ",");
+                            string data2 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"city\"", ",");
+                            string data3 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"postalcode\"", ",");
+                            string data4 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"country\"", ",");
+                            string data5 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"streetaddress\"", ",");
+                            log.Info("Data's is " + data1 + " " + data2 + " " + data3 + " " + data4 + " " + data5);
+
+                            //if there is a data with :" it will be change with :"" 
+                            if (data1 == ":\"" || data2 == ":\"" || data3 == ":\"" || data4 == ":\"" || data5 == ":\"")
                             {
-                                CompareData = 1;
+                                jsonDataSCIM_BULK_Replace = jsonDataSCIM_BULK_Replace.Replace(@":"",", @":"""",");
+                                //log.Info(jsonDataSCIM_BULK_Replace);
+                            }
+
+                            log.Info("Create users in BULK ID " + BulkSetId + " start. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
+                            string RegisterUser_Response = CreateUsersInBulk_WebRequestCall(jsonDataSCIM_BULK_Replace, out string resultResponse, out string statusCode, out string statusDescription, out string resulNotOK);
+                            log.Info("Create users in BULK ID " + BulkSetId + " end. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
+
+                            ResponseStatus = statusCode + " " + statusDescription;
+                            log.Info("Response status for BULK ID " + BulkSetId + " is: " + ResponseStatus + " .");
+
+                            if (Convert.ToInt32(statusCode) == ConstantsProject.CREATE_USERS_IN_BULK_ОК)
+                            {
+                                Response = resultResponse;
+                                ////////////Number of enrolled users in this bulk////////////
+                                responseList = ParseResponseForSCIMUsers(resultResponse);
+                                log.Info("Number of enrolled users in this bulk: " + responseList.Count);
+                                if (responseList.Count == RequestDataSize)
+                                {
+                                    CompareData = 1;
+                                }
+                                else
+                                {
+                                    CompareData = 0;
+                                    SCIM_DeleteUsersById(responseList, BulkSetId);
+                                }
                             }
                             else
                             {
                                 CompareData = 0;
-                                SCIM_DeleteUsersById(responseList, BulkSetId);
+                                Response = resulNotOK;
+                                log.Info("Result Not OK + " + Response);
                             }
-                            utility.spBulkSetExecutionResult(BulkSetId, CompareData, responseList.Count, out int ProcedureResult);
+                            utility.spBulkSetExecutionResult(BulkSetId, CompareData, responseList.Count, ConnectionString, out int ProcedureResult);
 
                             if (ProcedureResult != 0)
                             {
                                 log.Error("Result from database is diferent from 0. Result is: " + ProcedureResult);
                             }
+                            log.Info("Register user in BULK end1. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
                         }
-                        else
-                        {
-                            Response = resulNotOK;
-                            log.Info("Result Not OK + " + Response);
-                        }
-                        log.Info("Register user in BULK end1. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
-                    }
 
-                    MaxSize = MaxSizeNext;
+                        MaxSize = MaxSizeNext;
+                    }
                 }
             }
             catch (Exception ex)
@@ -274,7 +357,12 @@ namespace Migration
 
         protected override void OnStop()
         {
+            lock (workInProgressLock)
+            {
+                log.Error("The service cannot be shut down while the transaction is in progress.");
+            }
 
+            log.Info(@"Service stopped.");
         }
 
 
@@ -310,7 +398,7 @@ namespace Migration
                     {
                         if (navigator.Name == "CreateUsersInBulk")
                         {
-                            LoopingThrowNavigatorChild(navigator, out string CreateUsersInBulk_Url_Out_Final, out string CreateUsersInBulk_ContentType_Out_Final, out string CreateUsersInBulk_Method_Out_Final, out string CreateUsersInBulk_Username_Out_Final, out string CreateUsersInBulk_Password_Out_Final, out string CreateUsersInBulk_MaxSizeStart_Out_Final);
+                            LoopingThrowNavigatorChild(navigator, out string CreateUsersInBulk_Url_Out_Final, out string CreateUsersInBulk_ContentType_Out_Final, out string CreateUsersInBulk_Method_Out_Final, out string CreateUsersInBulk_Username_Out_Final, out string CreateUsersInBulk_Password_Out_Final, out string CreateUsersInBulk_MaxSizeStart_Out_Final, out string ConnectionString_Out_Final);
                             CreateUsersInBulk_Url_Out = CreateUsersInBulk_Url_Out_Final;
                             CreateUsersInBulk_ContentType_Out = CreateUsersInBulk_ContentType_Out_Final;
                             CreateUsersInBulk_Method_Out = CreateUsersInBulk_Method_Out_Final;
@@ -318,12 +406,13 @@ namespace Migration
                             CreateUsersInBulk_Password_Out = CreateUsersInBulk_Password_Out_Final;
                             CreateUsersInBulk_BasicAuth = CreateUsersInBulk_Username_Out + ":" + CreateUsersInBulk_Password_Out;
                             CreateUsersInBulk_MaxSizeStart = CreateUsersInBulk_MaxSizeStart_Out_Final;
+                            ConnectionString = ConnectionString_Out_Final;
                             navigator.MoveToFollowing(XPathNodeType.Element);
                             navigator.MoveToNext();
                         }
                         if (navigator.Name == "SCIMcheckData")
                         {
-                            LoopingThrowNavigatorChild(navigator, out string SCIMcheckData_Url_Out_Final, out string SCIMcheckData_ContentType_Out_Final, out string SCIMcheckData_Method_Out_Final, out string SCIMcheckData_Username_Out_Final, out string SCIMcheckData_Password_Out_Final, out string SCIMcheckData_MaxSizeStart_Out_Final);
+                            LoopingThrowNavigatorChild(navigator, out string SCIMcheckData_Url_Out_Final, out string SCIMcheckData_ContentType_Out_Final, out string SCIMcheckData_Method_Out_Final, out string SCIMcheckData_Username_Out_Final, out string SCIMcheckData_Password_Out_Final, out string SCIMcheckData_MaxSizeStart_Out_Final, out string SCIMcheckData_ConnectionString_Out_Final);
                             SCIMcheckData_Url_Out = SCIMcheckData_Url_Out_Final;
                             SCIMcheckData_ContentType_Out = SCIMcheckData_ContentType_Out_Final;
                             SCIMcheckData_Method_Out = SCIMcheckData_Method_Out_Final;
@@ -331,6 +420,7 @@ namespace Migration
                             SCIMcheckData_Password_Out = SCIMcheckData_Password_Out_Final;
                             SCIMcheckData_BasicAuth = SCIMcheckData_Username_Out + ":" + SCIMcheckData_Password_Out;
                             SCIMcheckData_MaxSizeStart = SCIMcheckData_MaxSizeStart_Out_Final;
+                            SCIMcheckData_ConnectionString = SCIMcheckData_ConnectionString_Out_Final;
                             navigator.MoveToFollowing(XPathNodeType.Element);
                         }
                     } while (navigator.MoveToNext());
@@ -342,7 +432,7 @@ namespace Migration
             }
         }
 
-        public static void LoopingThrowNavigatorChild(XPathNavigator navigator, out string Url_Out, out string ContentType_Out, out string Method_Out, out string Username_Out, out string Password_Out, out string MaxSizeStart_Out)
+        public static void LoopingThrowNavigatorChild(XPathNavigator navigator, out string Url_Out, out string ContentType_Out, out string Method_Out, out string Username_Out, out string Password_Out, out string MaxSizeStart_Out, out string ConnectionString_Out)
         {
             Url_Out = string.Empty;
             ContentType_Out = string.Empty;
@@ -350,6 +440,7 @@ namespace Migration
             Username_Out = string.Empty;
             Password_Out = string.Empty;
             MaxSizeStart_Out = string.Empty;
+            ConnectionString_Out = string.Empty;
 
             do
             {
@@ -382,6 +473,11 @@ namespace Migration
                 if (navigator.Name == "maxSizeStart")
                 {
                     MaxSizeStart_Out = navigator.Value;
+                }
+                navigator.MoveToFollowing(XPathNodeType.Element);
+                if (navigator.Name == "connectionString")
+                {
+                    ConnectionString_Out = navigator.Value;
                 }
                 log.Info("Get parameters from settings file : URL - " + Url_Out + " . Content Type - " + ContentType_Out + " . Method - " + Method_Out + " . Username - " + Username_Out + " . Password - " + Password_Out + " . MaxSizeStart - " + MaxSizeStart_Out);
                 navigator.MoveToFollowing(XPathNodeType.Element);

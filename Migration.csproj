@@ -73,6 +73,7 @@
     </Compile>
     <Compile Include="ProjectUtility.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="StartBulkTime.cs" />
     <Compile Include="Utils.cs" />
   </ItemGroup>
   <ItemGroup>

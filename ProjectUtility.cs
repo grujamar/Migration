@@ -22,9 +22,9 @@ public class ProjectUtility
 
     }
 
-    public bool IsAvailableConnection()
+    public bool IsAvailableConnection(string connString)
     {
-        using (SqlConnection objConn = new SqlConnection(EGovMigrationConnectionString))
+        using (SqlConnection objConn = new SqlConnection(connString))
         {
             try
             {
@@ -316,9 +316,9 @@ public class ProjectUtility
     }
 
 
-    public void spCreateNewBulkSet(int MaxSize, out int BulkSetId, out int MaxSizeNext, out string RequestData, out int RequestDataSize, out int result)
+    public void spCreateNewBulkSet(int MaxSize, string connString, out int BulkSetId, out int MaxSizeNext, out string RequestData, out int RequestDataSize, out int result)
     {
-        using (SqlConnection objConn = new SqlConnection(EGovMigrationConnectionString))
+        using (SqlConnection objConn = new SqlConnection(connString))
         {
             using (SqlCommand objCmd = new SqlCommand("spCreateNewBulkSet", objConn))
             {
@@ -365,9 +365,9 @@ public class ProjectUtility
     }
 
 
-    public void spBulkSetExecutionResult(int BulkSetId, int ExecutionResult, int NumberOfExecutedRecords, out int result)
+    public void spBulkSetExecutionResult(int BulkSetId, int ExecutionResult, int NumberOfExecutedRecords, string connString, out int result)
     {
-        using (SqlConnection objConn = new SqlConnection(EGovMigrationConnectionString))
+        using (SqlConnection objConn = new SqlConnection(connString))
         {
             using (SqlCommand objCmd = new SqlCommand("spBulkSetExecutionResult", objConn))
             {
