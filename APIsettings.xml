@@ -6,7 +6,7 @@
     <method>POST</method>
     <username>admin@wso2.com</username>
     <password>admin</password>
-    <maxSizeStart>1000</maxSizeStart>
+    <maxSizeStart>10</maxSizeStart>
     <connectionString>Data Source=192.168.10.218;Initial Catalog=Migration;Persist Security Info=True;User ID=sa;Password=P@ssw0rd</connectionString>
   </CreateUsersInBulk>
   <SCIMcheckData>
@@ -17,7 +17,7 @@
     <password>admin</password>
   </SCIMcheckData>
   <startBulk><!-- vreme u formatu hh:mm kada treba da se startuje Bulk -->
-		<startBulkTime>11:55</startBulkTime>
+		<startBulkTime>12:52</startBulkTime>
 		<startBulkTime></startBulkTime>
 		<startBulkTime></startBulkTime>
 	</startBulk>

@@ -325,7 +325,8 @@ public class ProjectUtility
                 try
                 {
                     objCmd.CommandType = CommandType.StoredProcedure;
-
+                    objCmd.CommandTimeout = 600; //set to 10 minutes (for 10.000 data, SP needs 4.5 minutes)
+                                                 //The time in seconds to wait for the command to execute. The default is 30 seconds.
                     objCmd.Parameters.Add("@MaxSize", System.Data.SqlDbType.Int).Value = MaxSize;
 
                     objCmd.Parameters.Add("@BulkSetId", System.Data.SqlDbType.Int);

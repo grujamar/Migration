@@ -170,6 +170,7 @@ namespace Migration
             int RequestDataSize = 0;
             int Result = 0;
             string jsonDataSCIM_BULK_Replace = string.Empty;
+            int NumberOfExecutedRecords = 0;
 
             try
             {
@@ -227,14 +228,17 @@ namespace Migration
                                     CompareData = 0;
                                     SCIM_DeleteUsersById(responseList, BulkSetId);
                                 }
+                                NumberOfExecutedRecords = responseList.Count;
                             }
                             else
                             {
                                 CompareData = 0;
                                 Response = resulNotOK;
+                                NumberOfExecutedRecords = 0;
                                 log.Info("Result Not OK + " + Response);
                             }
-                            utility.spBulkSetExecutionResult(BulkSetId, CompareData, responseList.Count, ConnectionString, out int ProcedureResult);
+                            log.Debug("spBulkSetExecutionResult: " + " BulkSetId - " + BulkSetId + " CompareData - " + CompareData + " NumberOfExecutedRecords - " + NumberOfExecutedRecords);
+                            utility.spBulkSetExecutionResult(BulkSetId, CompareData, NumberOfExecutedRecords, ConnectionString, out int ProcedureResult);
 
                             if (ProcedureResult != 0)
                             {
