@@ -36,6 +36,8 @@ namespace Migration
         public static string SCIMcheckData_MaxSizeStart { get; set; }
         public static string ConnectionString { get; set; }
         public static string SCIMcheckData_ConnectionString { get; set; }
+        public static string DeleteUsersOnScim { get; set; }
+        public static string SCIMcheckData_DeleteUsersOnScim { get; set; }
         private Object workInProgressLock = new Object();
         private List<StartBulkTime> timesForBulkStarting = new List<StartBulkTime>();
         private Timer getStartBulkTimer;
@@ -226,7 +228,10 @@ namespace Migration
                                 else
                                 {
                                     CompareData = 0;
-                                    SCIM_DeleteUsersById(responseList, BulkSetId);
+                                    if (DeleteUsersOnScim == "1")
+                                    {
+                                        SCIM_DeleteUsersById(responseList, BulkSetId);
+                                    } 
                                 }
                                 NumberOfExecutedRecords = responseList.Count;
                             }
@@ -402,7 +407,7 @@ namespace Migration
                     {
                         if (navigator.Name == "CreateUsersInBulk")
                         {
-                            LoopingThrowNavigatorChild(navigator, out string CreateUsersInBulk_Url_Out_Final, out string CreateUsersInBulk_ContentType_Out_Final, out string CreateUsersInBulk_Method_Out_Final, out string CreateUsersInBulk_Username_Out_Final, out string CreateUsersInBulk_Password_Out_Final, out string CreateUsersInBulk_MaxSizeStart_Out_Final, out string ConnectionString_Out_Final);
+                            LoopingThrowNavigatorChild(navigator, out string CreateUsersInBulk_Url_Out_Final, out string CreateUsersInBulk_ContentType_Out_Final, out string CreateUsersInBulk_Method_Out_Final, out string CreateUsersInBulk_Username_Out_Final, out string CreateUsersInBulk_Password_Out_Final, out string CreateUsersInBulk_MaxSizeStart_Out_Final, out string ConnectionString_Out_Final, out string DeleteUsersOnScim_Out_Final);
                             CreateUsersInBulk_Url_Out = CreateUsersInBulk_Url_Out_Final;
                             CreateUsersInBulk_ContentType_Out = CreateUsersInBulk_ContentType_Out_Final;
                             CreateUsersInBulk_Method_Out = CreateUsersInBulk_Method_Out_Final;
@@ -411,12 +416,13 @@ namespace Migration
                             CreateUsersInBulk_BasicAuth = CreateUsersInBulk_Username_Out + ":" + CreateUsersInBulk_Password_Out;
                             CreateUsersInBulk_MaxSizeStart = CreateUsersInBulk_MaxSizeStart_Out_Final;
                             ConnectionString = ConnectionString_Out_Final;
+                            DeleteUsersOnScim = DeleteUsersOnScim_Out_Final;
                             navigator.MoveToFollowing(XPathNodeType.Element);
                             navigator.MoveToNext();
                         }
                         if (navigator.Name == "SCIMcheckData")
                         {
-                            LoopingThrowNavigatorChild(navigator, out string SCIMcheckData_Url_Out_Final, out string SCIMcheckData_ContentType_Out_Final, out string SCIMcheckData_Method_Out_Final, out string SCIMcheckData_Username_Out_Final, out string SCIMcheckData_Password_Out_Final, out string SCIMcheckData_MaxSizeStart_Out_Final, out string SCIMcheckData_ConnectionString_Out_Final);
+                            LoopingThrowNavigatorChild(navigator, out string SCIMcheckData_Url_Out_Final, out string SCIMcheckData_ContentType_Out_Final, out string SCIMcheckData_Method_Out_Final, out string SCIMcheckData_Username_Out_Final, out string SCIMcheckData_Password_Out_Final, out string SCIMcheckData_MaxSizeStart_Out_Final, out string SCIMcheckData_ConnectionString_Out_Final, out string SCIMcheckData_DeleteUsersOnScim_Out_Final);
                             SCIMcheckData_Url_Out = SCIMcheckData_Url_Out_Final;
                             SCIMcheckData_ContentType_Out = SCIMcheckData_ContentType_Out_Final;
                             SCIMcheckData_Method_Out = SCIMcheckData_Method_Out_Final;
@@ -425,6 +431,7 @@ namespace Migration
                             SCIMcheckData_BasicAuth = SCIMcheckData_Username_Out + ":" + SCIMcheckData_Password_Out;
                             SCIMcheckData_MaxSizeStart = SCIMcheckData_MaxSizeStart_Out_Final;
                             SCIMcheckData_ConnectionString = SCIMcheckData_ConnectionString_Out_Final;
+                            SCIMcheckData_DeleteUsersOnScim = SCIMcheckData_DeleteUsersOnScim_Out_Final;
                             navigator.MoveToFollowing(XPathNodeType.Element);
                         }
                     } while (navigator.MoveToNext());
@@ -436,7 +443,7 @@ namespace Migration
             }
         }
 
-        public static void LoopingThrowNavigatorChild(XPathNavigator navigator, out string Url_Out, out string ContentType_Out, out string Method_Out, out string Username_Out, out string Password_Out, out string MaxSizeStart_Out, out string ConnectionString_Out)
+        public static void LoopingThrowNavigatorChild(XPathNavigator navigator, out string Url_Out, out string ContentType_Out, out string Method_Out, out string Username_Out, out string Password_Out, out string MaxSizeStart_Out, out string ConnectionString_Out, out string DeleteUsersOnScim_Out)
         {
             Url_Out = string.Empty;
             ContentType_Out = string.Empty;
@@ -445,6 +452,7 @@ namespace Migration
             Password_Out = string.Empty;
             MaxSizeStart_Out = string.Empty;
             ConnectionString_Out = string.Empty;
+            DeleteUsersOnScim_Out = string.Empty;
 
             do
             {
@@ -483,7 +491,12 @@ namespace Migration
                 {
                     ConnectionString_Out = navigator.Value;
                 }
-                log.Info("Get parameters from settings file : URL - " + Url_Out + " . Content Type - " + ContentType_Out + " . Method - " + Method_Out + " . Username - " + Username_Out + " . Password - " + Password_Out + " . MaxSizeStart - " + MaxSizeStart_Out);
+                navigator.MoveToFollowing(XPathNodeType.Element);
+                if (navigator.Name == "deleteUsersOnScim")
+                {
+                    DeleteUsersOnScim_Out = navigator.Value;
+                }
+                log.Info("Get parameters from settings file : URL - " + Url_Out + " . Content Type - " + ContentType_Out + " . Method - " + Method_Out + " . Username - " + Username_Out + " . Password - " + Password_Out + " . MaxSizeStart - " + MaxSizeStart_Out + " . DeleteUsersOnScim - " + DeleteUsersOnScim_Out);
                 navigator.MoveToFollowing(XPathNodeType.Element);
 
                 navigator.MoveToParent();

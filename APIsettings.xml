@@ -6,8 +6,9 @@
     <method>POST</method>
     <username>admin@wso2.com</username>
     <password>admin</password>
-    <maxSizeStart>10</maxSizeStart>
+    <maxSizeStart>100</maxSizeStart>
     <connectionString>Data Source=192.168.10.218;Initial Catalog=Migration;Persist Security Info=True;User ID=sa;Password=P@ssw0rd</connectionString>
+    <deleteUsersOnScim>0</deleteUsersOnScim><!-- po staroj logici ukoliko se ne slaze broj upisanih i broj poslatih u bulk request-u, brisi sve za taj bulk. 1 za briši, 0 ne briši  -->
   </CreateUsersInBulk>
   <SCIMcheckData>
     <url>https://dev-srv-wso2-02.westeurope.cloudapp.azure.com:9443/scim2/Users/</url>
@@ -17,7 +18,7 @@
     <password>admin</password>
   </SCIMcheckData>
   <startBulk><!-- vreme u formatu hh:mm kada treba da se startuje Bulk -->
-		<startBulkTime>12:52</startBulkTime>
+		<startBulkTime>14:37</startBulkTime>
 		<startBulkTime></startBulkTime>
 		<startBulkTime></startBulkTime>
 	</startBulk>
