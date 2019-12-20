@@ -173,6 +173,7 @@ namespace Migration
             int Result = 0;
             string jsonDataSCIM_BULK_Replace = string.Empty;
             int NumberOfExecutedRecords = 0;
+            int RequestDataSizeMinusTwoValue = -2;
 
             try
             {
@@ -189,69 +190,77 @@ namespace Migration
                         }
                         else
                         {
-                            //log.Info("RequestData is: " + RequestData);
-                            jsonDataSCIM_BULK_Replace = RequestData.Replace(@"""""", @"""");
-                            //log.Info("After replacing. RequestData is: " + jsonDataSCIM_BULK_Replace);
-
-                            //field that are not required
-                            string data1 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"password\"", ",");
-                            string data2 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"city\"", ",");
-                            string data3 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"postalcode\"", ",");
-                            string data4 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"country\"", ",");
-                            string data5 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"streetaddress\"", ",");
-                            log.Info("Data's is " + data1 + " " + data2 + " " + data3 + " " + data4 + " " + data5);
-
-                            //if there is a data with :" it will be change with :"" 
-                            if (data1 == ":\"" || data2 == ":\"" || data3 == ":\"" || data4 == ":\"" || data5 == ":\"")
+                            if (RequestDataSize == RequestDataSizeMinusTwoValue)
                             {
-                                jsonDataSCIM_BULK_Replace = jsonDataSCIM_BULK_Replace.Replace(@":"",", @":"""",");
-                                //log.Info(jsonDataSCIM_BULK_Replace);
+                                log.Info("Before ThreadSleep..");
+                                Thread.Sleep(60000);
                             }
-
-                            log.Info("Create users in BULK ID " + BulkSetId + " start. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
-                            string RegisterUser_Response = CreateUsersInBulk_WebRequestCall(jsonDataSCIM_BULK_Replace, out string resultResponse, out string statusCode, out string statusDescription, out string resulNotOK);
-                            log.Info("Create users in BULK ID " + BulkSetId + " end. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
-
-                            ResponseStatus = statusCode + " " + statusDescription;
-                            log.Info("Response status for BULK ID " + BulkSetId + " is: " + ResponseStatus + " .");
-
-                            if (Convert.ToInt32(statusCode) == ConstantsProject.CREATE_USERS_IN_BULK_ОК)
+                            else
                             {
-                                Response = resultResponse;
-                                ////////////Number of enrolled users in this bulk////////////
-                                responseList = ParseResponseForSCIMUsers(resultResponse);
-                                log.Info("Number of enrolled users in this bulk: " + responseList.Count);
-                                if (responseList.Count == RequestDataSize)
+                                //log.Info("RequestData is: " + RequestData);
+                                jsonDataSCIM_BULK_Replace = RequestData.Replace(@"""""", @"""");
+                                //log.Info("After replacing. RequestData is: " + jsonDataSCIM_BULK_Replace);
+
+                                //field that are not required
+                                string data1 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"password\"", ",");
+                                string data2 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"city\"", ",");
+                                string data3 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"postalcode\"", ",");
+                                string data4 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"country\"", ",");
+                                string data5 = Utils.getBetween(jsonDataSCIM_BULK_Replace, "\"streetaddress\"", ",");
+                                log.Info("Data's is " + data1 + " " + data2 + " " + data3 + " " + data4 + " " + data5);
+
+                                //if there is a data with :" it will be change with :"" 
+                                if (data1 == ":\"" || data2 == ":\"" || data3 == ":\"" || data4 == ":\"" || data5 == ":\"")
                                 {
-                                    CompareData = 1;
+                                    jsonDataSCIM_BULK_Replace = jsonDataSCIM_BULK_Replace.Replace(@":"",", @":"""",");
+                                    //log.Info(jsonDataSCIM_BULK_Replace);
+                                }
+
+                                log.Info("Create users in BULK ID " + BulkSetId + " start. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
+                                string RegisterUser_Response = CreateUsersInBulk_WebRequestCall(jsonDataSCIM_BULK_Replace, out string resultResponse, out string statusCode, out string statusDescription, out string resulNotOK);
+                                log.Info("Create users in BULK ID " + BulkSetId + " end. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
+
+                                ResponseStatus = statusCode + " " + statusDescription;
+                                log.Info("Response status for BULK ID " + BulkSetId + " is: " + ResponseStatus + " .");
+
+                                if (Convert.ToInt32(statusCode) == ConstantsProject.CREATE_USERS_IN_BULK_ОК)
+                                {
+                                    Response = resultResponse;
+                                    ////////////Number of enrolled users in this bulk////////////
+                                    responseList = ParseResponseForSCIMUsers(resultResponse);
+                                    log.Info("Number of enrolled users in this bulk: " + responseList.Count);
+                                    if (responseList.Count == RequestDataSize)
+                                    {
+                                        CompareData = 1;
+                                    }
+                                    else
+                                    {
+                                        CompareData = 0;
+                                        if (DeleteUsersOnScim == "1")
+                                        {
+                                            SCIM_DeleteUsersById(responseList, BulkSetId);
+                                        }
+                                    }
+                                    NumberOfExecutedRecords = responseList.Count;
                                 }
                                 else
                                 {
                                     CompareData = 0;
-                                    if (DeleteUsersOnScim == "1")
-                                    {
-                                        SCIM_DeleteUsersById(responseList, BulkSetId);
-                                    } 
+                                    Response = resulNotOK;
+                                    NumberOfExecutedRecords = 0;
+                                    log.Info("Result Not OK + " + Response);
                                 }
-                                NumberOfExecutedRecords = responseList.Count;
-                            }
-                            else
-                            {
-                                CompareData = 0;
-                                Response = resulNotOK;
-                                NumberOfExecutedRecords = 0;
-                                log.Info("Result Not OK + " + Response);
-                            }
-                            log.Debug("spBulkSetExecutionResult: " + " BulkSetId - " + BulkSetId + " CompareData - " + CompareData + " NumberOfExecutedRecords - " + NumberOfExecutedRecords);
-                            utility.spBulkSetExecutionResult(BulkSetId, CompareData, NumberOfExecutedRecords, ConnectionString, out int ProcedureResult);
+                                log.Debug("spBulkSetExecutionResult: " + " BulkSetId - " + BulkSetId + " CompareData - " + CompareData + " NumberOfExecutedRecords - " + NumberOfExecutedRecords);
+                                utility.spBulkSetExecutionResult(BulkSetId, CompareData, NumberOfExecutedRecords, ConnectionString, out int ProcedureResult);
 
-                            if (ProcedureResult != 0)
-                            {
-                                log.Error("Result from database is diferent from 0. Result is: " + ProcedureResult);
+                                if (ProcedureResult != 0)
+                                {
+                                    log.Error("Result from database is diferent from 0. Result is: " + ProcedureResult);
+                                }
+                                log.Info("Register user in BULK end1. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
+
                             }
-                            log.Info("Register user in BULK end1. " + DateTime.Now.ToString("yyyy MM dd HH:mm:ss:FFF"));
                         }
-
                         MaxSize = MaxSizeNext;
                     }
                 }
